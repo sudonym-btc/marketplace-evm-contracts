@@ -1,4 +1,4 @@
-# Marketplace Contracts
+# Marketplace EVM Contracts
 
 Shared marketplace escrow contract artifacts for Sudonym marketplace packages.
 
@@ -15,14 +15,14 @@ import {
   multiEscrowContract,
   multiEscrowRuntimeBytecodeHash,
   findMultiEscrowByRuntimeBytecodeHash,
-} from '@sudonym-btc/marketplace-contracts'
+} from '@sudonym-btc/marketplace-evm-contracts'
 ```
 
 Raw artifacts are also exported:
 
-- `@sudonym-btc/marketplace-contracts/artifacts/MultiEscrow.json`
-- `@sudonym-btc/marketplace-contracts/artifacts/MultiEscrow.abi.json`
-- `@sudonym-btc/marketplace-contracts/contracts/MultiEscrow.sol`
+- `@sudonym-btc/marketplace-evm-contracts/artifacts/MultiEscrow.json`
+- `@sudonym-btc/marketplace-evm-contracts/artifacts/MultiEscrow.abi.json`
+- `@sudonym-btc/marketplace-evm-contracts/contracts/MultiEscrow.sol`
 
 ## Updating From Hostr
 
@@ -37,4 +37,3 @@ npm run sync:multi-escrow
 That updates the Solidity source, artifact JSON, ABI JSON, generated TypeScript,
 and runtime bytecode hash registry in one commit. Downstream packages then bump
 their dependency to the new contracts commit/tag.
-

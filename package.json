@@ -1,12 +1,12 @@
 {
-  "name": "@sudonym-btc/marketplace-contracts",
+  "name": "@sudonym-btc/marketplace-evm-contracts",
   "version": "0.1.0",
   "description": "Shared marketplace escrow contract source, ABI, artifacts, and bytecode hash registry.",
   "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sudonym-btc/marketplace-contracts.git"
+    "url": "git+https://github.com/sudonym-btc/marketplace-evm-contracts.git"
   },
   "files": [
     "artifacts",
@@ -45,4 +45,3 @@
     "node": ">=20"
   }
 }
-
