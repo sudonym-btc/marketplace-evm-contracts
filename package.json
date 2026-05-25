@@ -1,0 +1,48 @@
+{
+  "name": "@sudonym-btc/marketplace-contracts",
+  "version": "0.1.0",
+  "description": "Shared marketplace escrow contract source, ABI, artifacts, and bytecode hash registry.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sudonym-btc/marketplace-contracts.git"
+  },
+  "files": [
+    "artifacts",
+    "contracts",
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./multi-escrow": {
+      "types": "./dist/multiEscrow.d.ts",
+      "import": "./dist/multiEscrow.js"
+    },
+    "./registry": {
+      "types": "./dist/registry.d.ts",
+      "import": "./dist/registry.js"
+    },
+    "./artifacts/MultiEscrow.json": "./artifacts/MultiEscrow.json",
+    "./artifacts/MultiEscrow.abi.json": "./artifacts/MultiEscrow.abi.json",
+    "./contracts/MultiEscrow.sol": "./contracts/MultiEscrow.sol"
+  },
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "sync:multi-escrow": "node scripts/sync-multi-escrow.mjs",
+    "build": "tsc -p tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "prepare": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
+
