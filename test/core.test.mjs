@@ -2,7 +2,11 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  findMultiAuctionByRuntimeBytecodeHash,
   findMultiEscrowByRuntimeBytecodeHash,
+  multiAuctionAbi,
+  multiAuctionContract,
+  multiAuctionRuntimeBytecodeHash,
   multiEscrowAbi,
   multiEscrowContract,
   multiEscrowRuntimeBytecodeHash,
@@ -21,3 +25,18 @@ test('exports the generated MultiEscrow artifact and bytecode registry', () => {
   assert.equal(findMultiEscrowByRuntimeBytecodeHash('0xdeadbeef'), undefined)
 })
 
+test('exports the generated MultiAuction artifact and bytecode registry', () => {
+  const bidPlaced = multiAuctionAbi.find(entry => entry.type === 'event' && entry.name === 'BidPlaced')
+  assert.ok(bidPlaced)
+  assert.equal(bidPlaced.inputs[0].name, 'auctionId')
+  assert.equal(bidPlaced.inputs[1].name, 'bidder')
+  assert.equal(bidPlaced.inputs[2].name, 'token')
+
+  const placeBid = multiAuctionAbi.find(entry => entry.type === 'function' && entry.name === 'placeBid')
+  assert.ok(placeBid)
+
+  assert.equal(multiAuctionContract.name, 'MultiAuction')
+  assert.equal(multiAuctionContract.runtimeBytecodeHash, multiAuctionRuntimeBytecodeHash)
+  assert.equal(findMultiAuctionByRuntimeBytecodeHash(multiAuctionRuntimeBytecodeHash)?.name, 'MultiAuction')
+  assert.equal(findMultiAuctionByRuntimeBytecodeHash('0xdeadbeef'), undefined)
+})

@@ -4,6 +4,12 @@ import {
   multiEscrowDeployedBytecode,
   multiEscrowRuntimeBytecodeHash,
 } from './multiEscrow.js'
+import {
+  multiAuctionAbi,
+  multiAuctionBytecode,
+  multiAuctionDeployedBytecode,
+  multiAuctionRuntimeBytecodeHash,
+} from './multiAuction.js'
 
 export type MarketplaceContractArtifact = {
   readonly name: string
@@ -25,13 +31,40 @@ export const multiEscrowContract = {
   runtimeBytecodeHash: multiEscrowRuntimeBytecodeHash,
 } satisfies MarketplaceContractArtifact
 
-export const multiEscrowRegistry = {
+export const multiAuctionContract = {
+  name: "MultiAuction",
+  version: "0.1.0",
+  sourceName: "contracts/MultiAuction.sol",
+  abi: multiAuctionAbi,
+  bytecode: multiAuctionBytecode,
+  deployedBytecode: multiAuctionDeployedBytecode,
+  runtimeBytecodeHash: multiAuctionRuntimeBytecodeHash,
+} satisfies MarketplaceContractArtifact
+
+export const marketplaceContractRegistry = {
   [multiEscrowRuntimeBytecodeHash]: multiEscrowContract,
+  [multiAuctionRuntimeBytecodeHash]: multiAuctionContract,
 } as const
 
 export function findMultiEscrowByRuntimeBytecodeHash(
   runtimeBytecodeHash: string | null | undefined,
 ): MarketplaceContractArtifact | undefined {
   if (!runtimeBytecodeHash) return undefined
-  return multiEscrowRegistry[runtimeBytecodeHash.toLowerCase() as keyof typeof multiEscrowRegistry]
+  const normalized = runtimeBytecodeHash.toLowerCase()
+  return normalized === multiEscrowRuntimeBytecodeHash ? multiEscrowContract : undefined
+}
+
+export function findMultiAuctionByRuntimeBytecodeHash(
+  runtimeBytecodeHash: string | null | undefined,
+): MarketplaceContractArtifact | undefined {
+  if (!runtimeBytecodeHash) return undefined
+  const normalized = runtimeBytecodeHash.toLowerCase()
+  return normalized === multiAuctionRuntimeBytecodeHash ? multiAuctionContract : undefined
+}
+
+export function findMarketplaceContractByRuntimeBytecodeHash(
+  runtimeBytecodeHash: string | null | undefined,
+): MarketplaceContractArtifact | undefined {
+  if (!runtimeBytecodeHash) return undefined
+  return marketplaceContractRegistry[runtimeBytecodeHash.toLowerCase() as keyof typeof marketplaceContractRegistry]
 }

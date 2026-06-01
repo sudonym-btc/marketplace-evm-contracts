@@ -22,13 +22,20 @@
       "types": "./dist/multiEscrow.d.ts",
       "import": "./dist/multiEscrow.js"
     },
+    "./multi-auction": {
+      "types": "./dist/multiAuction.d.ts",
+      "import": "./dist/multiAuction.js"
+    },
     "./registry": {
       "types": "./dist/registry.d.ts",
       "import": "./dist/registry.js"
     },
     "./artifacts/MultiEscrow.json": "./artifacts/MultiEscrow.json",
     "./artifacts/MultiEscrow.abi.json": "./artifacts/MultiEscrow.abi.json",
-    "./contracts/MultiEscrow.sol": "./contracts/MultiEscrow.sol"
+    "./artifacts/MultiAuction.json": "./artifacts/MultiAuction.json",
+    "./artifacts/MultiAuction.abi.json": "./artifacts/MultiAuction.abi.json",
+    "./contracts/MultiEscrow.sol": "./contracts/MultiEscrow.sol",
+    "./contracts/MultiAuction.sol": "./contracts/MultiAuction.sol"
   },
   "scripts": {
     "generate": "node scripts/generate.mjs",
