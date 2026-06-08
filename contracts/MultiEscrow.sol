@@ -36,6 +36,10 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
     error NativeNotExpected();
     error InsufficientExcess();
     error NothingToWithdraw();
+    error RecycleExpired();
+    error RecycleCovenantMismatch();
+    error InvalidRecycleAmount();
+    error RecycleTokenMismatch();
 
     // ── Types ─────────────────────────────────────────────────────────
 
@@ -47,7 +51,10 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         uint256 paymentAmount;
         uint256 bondAmount;
         uint256 unlockAt;
+        address timeoutClaimant;
         uint256 escrowFee;      // flat fee in token units (on payment only)
+        bytes32 contextHash;
+        bytes32 recycleCovenantHash;
     }
 
     // ── EIP-712 type hashes ───────────────────────────────────────────
@@ -63,6 +70,15 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     bytes32 private constant WITHDRAW_TYPEHASH =
         keccak256("Withdraw(address token,address destination)");
+
+    bytes32 private constant TRADE_TERMS_TYPEHASH =
+        keccak256("TradeTerms(bytes32 tradeId,address buyer,address seller,address arbiter,address token,uint256 paymentAmount,uint256 bondAmount,uint256 unlockAt,address timeoutClaimant,uint256 escrowFee,bytes32 contextHash,bytes32 recycleCovenantHash)");
+
+    bytes32 private constant RECYCLE_TYPEHASH =
+        keccak256("Recycle(bytes32 sourceTradeId,bytes32 targetTermsHash,uint256 deadline)");
+
+    bytes32 private constant RECYCLE_COVENANT_TYPEHASH =
+        keccak256("RecycleCovenant(address buyer,address seller,address arbiter,address token,uint256 paymentAmount,uint256 bondAmount,address timeoutClaimant,uint256 escrowFee,bytes32 contextHash)");
 
     // ── State ─────────────────────────────────────────────────────────
 
@@ -85,16 +101,17 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     // ── Events ────────────────────────────────────────────────────────
 
-    event TradeCreated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, address indexed arbiter, uint256 paymentAmount, uint256 bondAmount, uint256 unlockAt, uint256 escrowFee);
+    event TradeCreated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, address indexed arbiter, uint256 paymentAmount, uint256 bondAmount, uint256 unlockAt, address timeoutClaimant, uint256 escrowFee, bytes32 contextHash, bytes32 recycleCovenantHash);
     event Arbitrated(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 paymentAmount, uint256 bondAmount, uint256 paymentFactor, uint256 bondFactor);
-    event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, uint256 paymentAmount, uint256 bondAmount);
+    event Claimed(bytes32 indexed tradeId, address indexed token, address seller, address buyer, address timeoutClaimant, uint256 paymentAmount, uint256 bondAmount);
     event ReleasedToCounterparty(bytes32 indexed tradeId, address indexed token, address from, address to, uint256 amount);
+    event FundsRecycled(bytes32 indexed sourceTradeId, bytes32 indexed targetTradeId, address indexed token, address buyer, address arbiter, uint256 amount, bytes32 contextHash);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event Withdrawn(address indexed beneficiary, address indexed token, address destination, uint256 amount);
 
     // ── Constructor ───────────────────────────────────────────────────
 
-    constructor() EIP712("Hostr MultiEscrow", "6") {
+    constructor() EIP712("Nostr MultiEscrow", "6") {
         owner = msg.sender;
     }
 
@@ -181,13 +198,17 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         address arbiter,
         address token,
         uint256 unlockAt,
+        address timeoutClaimant,
         uint256 escrowFee,
         uint256 paymentAmount,
-        uint256 bondAmount
+        uint256 bondAmount,
+        bytes32 contextHash,
+        bytes32 recycleCovenantHash
     ) internal {
         if (trades[tradeId].buyer != address(0)) revert TradeIdAlreadyExists();
         if (paymentAmount + bondAmount == 0) revert MustSendFunds();
         if (escrowFee > paymentAmount) revert EscrowFeeTooHigh();
+        address claimant = timeoutClaimant == address(0) ? seller : timeoutClaimant;
 
         trades[tradeId] = Trade({
             buyer: buyer,
@@ -197,10 +218,69 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
             paymentAmount: paymentAmount,
             bondAmount: bondAmount,
             unlockAt: unlockAt,
-            escrowFee: escrowFee
+            timeoutClaimant: claimant,
+            escrowFee: escrowFee,
+            contextHash: contextHash,
+            recycleCovenantHash: recycleCovenantHash
         });
         _addActiveTrade(tradeId);
-        emit TradeCreated(tradeId, token, seller, buyer, arbiter, paymentAmount, bondAmount, unlockAt, escrowFee);
+        emit TradeCreated(tradeId, token, seller, buyer, arbiter, paymentAmount, bondAmount, unlockAt, claimant, escrowFee, contextHash, recycleCovenantHash);
+    }
+
+    function _termsHash(
+        bytes32 tradeId,
+        address buyer,
+        address seller,
+        address arbiter,
+        address token,
+        uint256 paymentAmount,
+        uint256 bondAmount,
+        uint256 unlockAt,
+        address timeoutClaimant,
+        uint256 escrowFee,
+        bytes32 contextHash,
+        bytes32 recycleCovenantHash
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(
+            TRADE_TERMS_TYPEHASH,
+            tradeId,
+            buyer,
+            seller,
+            arbiter,
+            token,
+            paymentAmount,
+            bondAmount,
+            unlockAt,
+            timeoutClaimant,
+            escrowFee,
+            contextHash,
+            recycleCovenantHash
+        ));
+    }
+
+    function _recycleCovenantHash(
+        address buyer,
+        address seller,
+        address arbiter,
+        address token,
+        uint256 paymentAmount,
+        uint256 bondAmount,
+        address timeoutClaimant,
+        uint256 escrowFee,
+        bytes32 contextHash
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(
+            RECYCLE_COVENANT_TYPEHASH,
+            buyer,
+            seller,
+            arbiter,
+            token,
+            paymentAmount,
+            bondAmount,
+            timeoutClaimant,
+            escrowFee,
+            contextHash
+        ));
     }
 
     function _creditBalance(address recipient, address token, uint256 amount) internal {
@@ -251,12 +331,18 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         address seller = trade.seller;
         address buyer = trade.buyer;
         address token = trade.token;
+        address timeoutClaimant = trade.timeoutClaimant == address(0) ? seller : trade.timeoutClaimant;
         uint256 paymentAfterFee = trade.paymentAmount - trade.escrowFee;
 
-        // payment (minus fee) → seller, bond → buyer
-        _settleTrade(tradeId, seller, paymentAfterFee, buyer, trade.bondAmount);
+        // The claimant receives the payment after timeout. Bonds remain buyer
+        // refundable unless the buyer is also the timeout claimant.
+        if (timeoutClaimant == buyer) {
+            _settleTrade(tradeId, buyer, paymentAfterFee + trade.bondAmount, address(0), 0);
+        } else {
+            _settleTrade(tradeId, timeoutClaimant, paymentAfterFee, buyer, trade.bondAmount);
+        }
 
-        emit Claimed(tradeId, token, seller, buyer, paymentAfterFee, trade.bondAmount);
+        emit Claimed(tradeId, token, seller, buyer, timeoutClaimant, paymentAfterFee, trade.bondAmount);
     }
 
     function _releaseToCounterparty(
@@ -339,6 +425,69 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         uint256 _unlockAt,
         uint256 _escrowFee
     ) external payable nonReentrant {
+        _createFundedTrade(
+            tradeId,
+            _buyer,
+            _seller,
+            _arbiter,
+            _token,
+            _paymentAmount,
+            _bondAmount,
+            _unlockAt,
+            _seller,
+            _escrowFee,
+            bytes32(0),
+            bytes32(0)
+        );
+    }
+
+    /// @notice Create a new escrow trade with explicit timeout and recycle
+    ///         terms. For auction bid lockups, set `_timeoutClaimant` to the
+    ///         buyer. For ordinary order escrows, set it to the seller.
+    function createTradeWithTerms(
+        bytes32 tradeId,
+        address _buyer,
+        address _seller,
+        address _arbiter,
+        address _token,
+        uint256 _paymentAmount,
+        uint256 _bondAmount,
+        uint256 _unlockAt,
+        address _timeoutClaimant,
+        uint256 _escrowFee,
+        bytes32 _contextHash,
+        bytes32 recycleCovenantHash
+    ) external payable nonReentrant {
+        _createFundedTrade(
+            tradeId,
+            _buyer,
+            _seller,
+            _arbiter,
+            _token,
+            _paymentAmount,
+            _bondAmount,
+            _unlockAt,
+            _timeoutClaimant,
+            _escrowFee,
+            _contextHash,
+            recycleCovenantHash
+        );
+    }
+
+    function _createFundedTrade(
+        bytes32 tradeId,
+        address _buyer,
+        address _seller,
+        address _arbiter,
+        address _token,
+        uint256 _paymentAmount,
+        uint256 _bondAmount,
+        uint256 _unlockAt,
+        address _timeoutClaimant,
+        uint256 _escrowFee,
+        bytes32 _contextHash,
+        bytes32 recycleCovenantHash
+    ) internal {
         uint256 totalAmount = _paymentAmount + _bondAmount;
         uint256 funded;
         if (_token == address(0)) {
@@ -354,7 +503,99 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         // the proportional split is preserved even when `funded < totalAmount`.
         uint256 fundedPayment = totalAmount > 0 ? (funded * _paymentAmount) / totalAmount : 0;
         uint256 fundedBond = funded - fundedPayment;
-        _createTrade(tradeId, _buyer, _seller, _arbiter, _token, _unlockAt, _escrowFee, fundedPayment, fundedBond);
+        _createTrade(tradeId, _buyer, _seller, _arbiter, _token, _unlockAt, _timeoutClaimant, _escrowFee, fundedPayment, fundedBond, _contextHash, recycleCovenantHash);
+    }
+
+    // ── Recycle / promote ─────────────────────────────────────────────
+
+    /// @notice Move active escrowed funds into a new escrow id and terms,
+    ///         without releasing custody. This is intended for promoting a
+    ///         winning auction bid lock into a normal order escrow.
+    function recycle(
+        bytes32 sourceTradeId,
+        bytes32 targetTradeId,
+        address targetBuyer,
+        address targetSeller,
+        address targetArbiter,
+        address targetToken,
+        uint256 targetPaymentAmount,
+        uint256 targetBondAmount,
+        uint256 targetUnlockAt,
+        address targetTimeoutClaimant,
+        uint256 targetEscrowFee,
+        bytes32 targetContextHash,
+        bytes32 targetRecycleCovenantHash,
+        uint256 deadline,
+        bytes calldata buyerSignature,
+        bytes calldata arbiterSignature
+    ) external nonReentrant {
+        if (deadline != 0 && block.timestamp > deadline) revert RecycleExpired();
+
+        Trade memory source = trades[sourceTradeId];
+        uint256 sourceAmount = source.paymentAmount + source.bondAmount;
+        uint256 targetAmount = targetPaymentAmount + targetBondAmount;
+        if (sourceAmount == 0) revert NoFundsToRelease();
+        if (source.token != targetToken) revert RecycleTokenMismatch();
+        if (sourceAmount != targetAmount) revert InvalidRecycleAmount();
+        if (targetEscrowFee > targetPaymentAmount) revert EscrowFeeTooHigh();
+
+        address claimant = targetTimeoutClaimant == address(0) ? targetSeller : targetTimeoutClaimant;
+        bytes32 targetTermsHash = _termsHash(
+            targetTradeId,
+            targetBuyer,
+            targetSeller,
+            targetArbiter,
+            targetToken,
+            targetPaymentAmount,
+            targetBondAmount,
+            targetUnlockAt,
+            claimant,
+            targetEscrowFee,
+            targetContextHash,
+            targetRecycleCovenantHash
+        );
+        bytes32 targetCovenantHash = _recycleCovenantHash(
+            targetBuyer,
+            targetSeller,
+            targetArbiter,
+            targetToken,
+            targetPaymentAmount,
+            targetBondAmount,
+            claimant,
+            targetEscrowFee,
+            targetContextHash
+        );
+        if (source.recycleCovenantHash != bytes32(0)) {
+            if (source.recycleCovenantHash != targetCovenantHash) revert RecycleCovenantMismatch();
+        } else {
+            _verifySigner(
+                source.buyer,
+                keccak256(abi.encode(RECYCLE_TYPEHASH, sourceTradeId, targetTermsHash, deadline)),
+                buyerSignature
+            );
+        }
+
+        bytes32 structHash = keccak256(abi.encode(RECYCLE_TYPEHASH, sourceTradeId, targetTermsHash, deadline));
+        _verifySigner(source.arbiter, structHash, arbiterSignature);
+
+        _removeActiveTrade(sourceTradeId);
+        delete trades[sourceTradeId];
+        _createTrade(
+            targetTradeId,
+            targetBuyer,
+            targetSeller,
+            targetArbiter,
+            targetToken,
+            targetUnlockAt,
+            claimant,
+            targetEscrowFee,
+            targetPaymentAmount,
+            targetBondAmount,
+            targetContextHash,
+            targetRecycleCovenantHash
+        );
+
+        emit FundsRecycled(sourceTradeId, targetTradeId, targetToken, source.buyer, source.arbiter, sourceAmount, targetContextHash);
     }
 
     // ── Release ───────────────────────────────────────────────────────
@@ -418,9 +659,10 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         bytes32 tradeId,
         bytes calldata signature
     ) external nonReentrant {
-        address seller = trades[tradeId].seller;
+        Trade memory trade = trades[tradeId];
+        address claimant = trade.timeoutClaimant == address(0) ? trade.seller : trade.timeoutClaimant;
         _verifySigner(
-            seller,
+            claimant,
             keccak256(abi.encode(CLAIM_TYPEHASH, tradeId)),
             signature
         );

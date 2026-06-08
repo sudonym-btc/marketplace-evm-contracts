@@ -22,22 +22,17 @@
       "types": "./dist/multiEscrow.d.ts",
       "import": "./dist/multiEscrow.js"
     },
-    "./multi-auction": {
-      "types": "./dist/multiAuction.d.ts",
-      "import": "./dist/multiAuction.js"
-    },
     "./registry": {
       "types": "./dist/registry.d.ts",
       "import": "./dist/registry.js"
     },
     "./artifacts/MultiEscrow.json": "./artifacts/MultiEscrow.json",
     "./artifacts/MultiEscrow.abi.json": "./artifacts/MultiEscrow.abi.json",
-    "./artifacts/MultiAuction.json": "./artifacts/MultiAuction.json",
-    "./artifacts/MultiAuction.abi.json": "./artifacts/MultiAuction.abi.json",
-    "./contracts/MultiEscrow.sol": "./contracts/MultiEscrow.sol",
-    "./contracts/MultiAuction.sol": "./contracts/MultiAuction.sol"
+    "./contracts/MultiEscrow.sol": "./contracts/MultiEscrow.sol"
   },
   "scripts": {
+    "compile": "node scripts/compile.mjs",
+    "build:artifacts": "npm run compile && npm run generate",
     "generate": "node scripts/generate.mjs",
     "sync:multi-escrow": "node scripts/sync-multi-escrow.mjs",
     "build": "tsc -p tsconfig.build.json",
@@ -46,6 +41,8 @@
     "prepare": "npm run build"
   },
   "devDependencies": {
+    "@openzeppelin/contracts": "^5.6.1",
+    "solc": "^0.8.35",
     "typescript": "^5.8.2"
   },
   "engines": {

@@ -24,13 +24,13 @@ Raw artifacts are also exported:
 - `@sudonym-btc/marketplace-evm-contracts/artifacts/MultiEscrow.abi.json`
 - `@sudonym-btc/marketplace-evm-contracts/contracts/MultiEscrow.sol`
 
-## Updating From Hostr
+## Updating Contract Sources
 
-When the `MultiEscrow` contract changes in the Hostr monorepo, run:
+When the `MultiEscrow` contract changes in a source checkout, run:
 
 ```sh
-MULTI_ESCROW_SOURCE=/path/to/hostr/escrow/contracts/contracts/MultiEscrow.sol \
-MULTI_ESCROW_ARTIFACT=/path/to/hostr/escrow/contracts/artifacts/contracts/MultiEscrow.sol/MultiEscrow.json \
+MULTI_ESCROW_SOURCE=/path/to/marketplace-source/contracts/MultiEscrow.sol \
+MULTI_ESCROW_ARTIFACT=/path/to/marketplace-source/artifacts/contracts/MultiEscrow.sol/MultiEscrow.json \
 npm run sync:multi-escrow
 ```
 

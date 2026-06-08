@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const artifacts = [
   { name: 'MultiEscrow', sourceName: 'contracts/MultiEscrow.sol', moduleName: 'multiEscrow', constName: 'multiEscrow' },
-  { name: 'MultiAuction', sourceName: 'contracts/MultiAuction.sol', moduleName: 'multiAuction', constName: 'multiAuction' },
 ]
 const registryPath = join(root, 'src', 'registry.ts')
 const indexPath = join(root, 'src', 'index.ts')
