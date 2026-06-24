@@ -2,6 +2,16 @@
 
 Shared marketplace escrow contract artifacts for Sudonym marketplace packages.
 
+## Docs
+
+Package-owned docs live in [`docs`](docs/README.md). Start with
+[`docs/getting-started.md`](docs/getting-started.md) and regenerate the API
+reference with:
+
+```sh
+npm run docs:api
+```
+
 This package is the source of truth for `MultiEscrow` Solidity source, Hardhat
 artifact, ABI JSON, generated TypeScript exports, and runtime bytecode hashes.
 Consumers should import ABI/registry data from this package instead of keeping
