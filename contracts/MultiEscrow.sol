@@ -673,19 +673,21 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     /// @notice Withdraw the full balance of a specific token.
     ///         `beneficiary` is the address that was awarded funds during
-    ///         settlement. `signature` must be from `beneficiary`.
-    ///         Anyone can broadcast the transaction (gas-sponsored relay).
+    ///         settlement. If called by `beneficiary`, no signature is needed.
+    ///         Otherwise, `signature` must be from `beneficiary`.
     function withdraw(
         address token,
         address beneficiary,
         address destination,
         bytes calldata signature
     ) external nonReentrant {
-        _verifySigner(
-            beneficiary,
-            keccak256(abi.encode(WITHDRAW_TYPEHASH, token, destination)),
-            signature
-        );
+        if (msg.sender != beneficiary) {
+            _verifySigner(
+                beneficiary,
+                keccak256(abi.encode(WITHDRAW_TYPEHASH, token, destination)),
+                signature
+            );
+        }
 
         uint256 amount = balances[beneficiary][token];
         if (amount == 0) revert NothingToWithdraw();
