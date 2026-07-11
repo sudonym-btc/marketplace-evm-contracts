@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
@@ -19,6 +19,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
     // ── Errors ────────────────────────────────────────────────────────
 
     error OnlyOwner();
+    error InvalidAddress();
     error InvalidSignature();
     error NotAContract();
     error TradeAlreadyActive();
@@ -69,7 +70,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         keccak256("Arbitrate(bytes32 tradeId,uint256 paymentFactor,uint256 bondFactor)");
 
     bytes32 private constant WITHDRAW_TYPEHASH =
-        keccak256("Withdraw(address token,address destination)");
+        keccak256("Withdraw(address token,address destination,uint256 nonce)");
 
     bytes32 private constant TRADE_TERMS_TYPEHASH =
         keccak256("TradeTerms(bytes32 tradeId,address buyer,address seller,address arbiter,address token,uint256 paymentAmount,uint256 bondAmount,uint256 unlockAt,address timeoutClaimant,uint256 escrowFee,bytes32 contextHash,bytes32 recycleCovenantHash)");
@@ -89,6 +90,11 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
     /// @dev user => token => withdrawable balance.
     ///      token address(0) represents native RBTC.
     mapping(address => mapping(address => uint256)) public balances;
+
+    /// @dev Incremented after every withdrawal, including beneficiary-direct
+    ///      withdrawals, so an old relayer authorization can never drain a
+    ///      balance credited in the future.
+    mapping(address => uint256) public withdrawNonces;
 
     /// @dev user => list of token addresses with non-zero balances (for enumeration).
     mapping(address => address[]) private _userTokens;
@@ -205,6 +211,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         bytes32 contextHash,
         bytes32 recycleCovenantHash
     ) internal {
+        if (buyer == address(0) || seller == address(0) || arbiter == address(0)) revert InvalidAddress();
         if (trades[tradeId].buyer != address(0)) revert TradeIdAlreadyExists();
         if (paymentAmount + bondAmount == 0) revert MustSendFunds();
         if (escrowFee > paymentAmount) revert EscrowFeeTooHigh();
@@ -371,6 +378,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
     // ── Admin ─────────────────────────────────────────────────────────
 
     function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert InvalidAddress();
         emit OwnershipTransferred(owner, newOwner);
         owner = newOwner;
     }
@@ -681,10 +689,12 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         address destination,
         bytes calldata signature
     ) external nonReentrant {
+        if (beneficiary == address(0) || destination == address(0)) revert InvalidAddress();
+        uint256 nonce = withdrawNonces[beneficiary];
         if (msg.sender != beneficiary) {
             _verifySigner(
                 beneficiary,
-                keccak256(abi.encode(WITHDRAW_TYPEHASH, token, destination)),
+                keccak256(abi.encode(WITHDRAW_TYPEHASH, token, destination, nonce)),
                 signature
             );
         }
@@ -695,6 +705,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         // Clear before transfer (CEI)
         balances[beneficiary][token] = 0;
         totalPending[token] -= amount;
+        withdrawNonces[beneficiary] = nonce + 1;
 
         _transfer(token, destination, amount);
 
@@ -737,6 +748,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
     ///         not backing any active trade. Only callable by the owner.
     function rescueERC20(address token, address to, uint256 amount) external onlyOwner {
         if (token == address(0)) revert NativeNotExpected();
+        if (to == address(0)) revert InvalidAddress();
         if (token.code.length == 0) revert NotAContract();
 
         uint256 committed;
@@ -756,5 +768,23 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
         if (amount > excess) revert InsufficientExcess();
 
         _transfer(token, to, amount);
+    }
+
+    /// @notice Recover native currency sent directly to the contract that is
+    ///         not backing any active trade or settled withdrawal balance.
+    function rescueNative(address payable to, uint256 amount) external onlyOwner nonReentrant {
+        if (to == address(0)) revert InvalidAddress();
+
+        uint256 committed = totalPending[address(0)];
+        uint256 len = _activeTradeIds.length;
+        for (uint256 i; i < len;) {
+            Trade storage t = trades[_activeTradeIds[i]];
+            if (t.token == address(0)) committed += t.paymentAmount + t.bondAmount;
+            unchecked { ++i; }
+        }
+
+        uint256 excess = address(this).balance - committed;
+        if (amount > excess) revert InsufficientExcess();
+        _transfer(address(0), to, amount);
     }
 }
