@@ -37,8 +37,7 @@ contract MultiEscrowTest {
     bytes32 private constant CLAIM_TYPEHASH = keccak256("Claim(bytes32 tradeId)");
     bytes32 private constant ARBITRATE_TYPEHASH =
         keccak256("Arbitrate(bytes32 tradeId,uint256 paymentFactor,uint256 bondFactor)");
-    bytes32 private constant WITHDRAW_TYPEHASH =
-        keccak256("Withdraw(address token,address destination,uint256 nonce)");
+    bytes32 private constant WITHDRAW_TYPEHASH = keccak256("Withdraw(address token,address destination,uint256 nonce)");
 
     uint256 private constant BUYER_KEY = 0xA11CE;
     uint256 private constant SELLER_KEY = 0xB0B;
@@ -57,13 +56,15 @@ contract MultiEscrowTest {
     }
 
     function _digest(bytes32 structHash) private view returns (bytes32) {
-        bytes32 domain = keccak256(abi.encode(
-            DOMAIN_TYPEHASH,
-            keccak256(bytes("Nostr MultiEscrow")),
-            keccak256(bytes("6")),
-            block.chainid,
-            address(escrow)
-        ));
+        bytes32 domain = keccak256(
+            abi.encode(
+                DOMAIN_TYPEHASH,
+                keccak256(bytes("Nostr MultiEscrow")),
+                keccak256(bytes("6")),
+                block.chainid,
+                address(escrow)
+            )
+        );
         return keccak256(abi.encodePacked("\x19\x01", domain, structHash));
     }
 
@@ -76,23 +77,12 @@ contract MultiEscrowTest {
         vm.deal(buyer, payment + bond);
         vm.prank(buyer);
         escrow.createTrade{value: payment + bond}(
-            tradeId,
-            buyer,
-            seller,
-            arbiter,
-            address(0),
-            payment,
-            bond,
-            unlockAt,
-            fee
+            tradeId, buyer, seller, arbiter, address(0), payment, bond, unlockAt, fee
         );
     }
 
     function _releaseByBuyer(bytes32 tradeId) private {
-        bytes memory signature = _signature(
-            BUYER_KEY,
-            keccak256(abi.encode(RELEASE_TYPEHASH, tradeId, buyer))
-        );
+        bytes memory signature = _signature(BUYER_KEY, keccak256(abi.encode(RELEASE_TYPEHASH, tradeId, buyer)));
         escrow.releaseToCounterparty(tradeId, buyer, signature);
     }
 
@@ -119,10 +109,7 @@ contract MultiEscrowTest {
         _create(tradeId, 2 ether, 0.5 ether, 0, unlockAt);
         vm.warp(unlockAt + 1);
 
-        bytes memory signature = _signature(
-            SELLER_KEY,
-            keccak256(abi.encode(CLAIM_TYPEHASH, tradeId))
-        );
+        bytes memory signature = _signature(SELLER_KEY, keccak256(abi.encode(CLAIM_TYPEHASH, tradeId)));
         escrow.claim(tradeId, signature);
         require(escrow.balances(seller, address(0)) == 2 ether, "seller payment");
         require(escrow.balances(buyer, address(0)) == 0.5 ether, "buyer bond");
@@ -133,10 +120,8 @@ contract MultiEscrowTest {
         _create(firstId, 1 ether, 0, 0, block.timestamp + 1 days);
         _releaseByBuyer(firstId);
 
-        bytes memory signature = _signature(
-            SELLER_KEY,
-            keccak256(abi.encode(WITHDRAW_TYPEHASH, address(0), seller, uint256(0)))
-        );
+        bytes memory signature =
+            _signature(SELLER_KEY, keccak256(abi.encode(WITHDRAW_TYPEHASH, address(0), seller, uint256(0))));
         escrow.withdraw(address(0), seller, seller, signature);
 
         bytes32 secondId = keccak256("withdraw-two");
@@ -160,14 +145,11 @@ contract MultiEscrowTest {
         bytes32 tradeId = keccak256(abi.encode(rawPayment, rawBond, rawPaymentFactor, rawBondFactor));
 
         _create(tradeId, payment, bond, 0, block.timestamp + 1 days);
-        bytes memory signature = _signature(
-            ARBITER_KEY,
-            keccak256(abi.encode(ARBITRATE_TYPEHASH, tradeId, paymentFactor, bondFactor))
-        );
+        bytes memory signature =
+            _signature(ARBITER_KEY, keccak256(abi.encode(ARBITRATE_TYPEHASH, tradeId, paymentFactor, bondFactor)));
         escrow.arbitrate(tradeId, paymentFactor, bondFactor, signature);
 
-        uint256 credited = escrow.balances(seller, address(0))
-            + escrow.balances(buyer, address(0))
+        uint256 credited = escrow.balances(seller, address(0)) + escrow.balances(buyer, address(0))
             + escrow.balances(arbiter, address(0));
         require(credited == payment + bond, "value not conserved");
         require(escrow.totalPending(address(0)) == payment + bond, "pending mismatch");
