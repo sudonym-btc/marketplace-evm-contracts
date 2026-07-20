@@ -2,8 +2,6 @@
 
 > `const` **multiEscrowContract**: `object`
 
-Defined in: [registry.ts:18](https://github.com/sudonym-btc/marketplace-evm-contracts/blob/bea787e0f09fb965e2b15185cec87d08fe4d8711/src/registry.ts#L18)
-
 ## Type Declaration
 
 ### abi
