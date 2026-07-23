@@ -156,7 +156,7 @@ contract MultiEscrow is EIP712, ReentrancyGuard {
 
     // ── Constructor ───────────────────────────────────────────────────
 
-    constructor() EIP712("Nostr MultiEscrow", "6") {
+    constructor() EIP712("Nostr MultiEscrow", "7") {
         owner = msg.sender;
     }
 

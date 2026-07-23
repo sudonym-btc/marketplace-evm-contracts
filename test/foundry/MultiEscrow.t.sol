@@ -60,7 +60,7 @@ contract MultiEscrowTest {
             abi.encode(
                 DOMAIN_TYPEHASH,
                 keccak256(bytes("Nostr MultiEscrow")),
-                keccak256(bytes("6")),
+                keccak256(bytes("7")),
                 block.chainid,
                 address(escrow)
             )
