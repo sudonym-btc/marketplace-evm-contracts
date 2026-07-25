@@ -18,6 +18,15 @@ artifact, ABI JSON, generated TypeScript exports, and runtime bytecode hashes.
 Consumers should import ABI/registry data from this package instead of keeping
 hand-written ABI copies.
 
+The current authorization domain is `Nostr MultiEscrow`, version `7`.
+Withdrawal authorizations bind `(token, destination, beneficiary nonce)`; the
+nonce advances after every direct or relayed withdrawal. Run `npm test` for
+artifact checks plus the Foundry behavior/fuzz suite.
+
+Settled trade IDs can still be recreated because permanent used-ID tracking was
+deliberately excluded from the current scope. This is a public-chain and
+real-value release blocker; see the aggregate NMDK `KNOWN_LIMITATIONS.md`.
+
 ## Exports
 
 ```ts
