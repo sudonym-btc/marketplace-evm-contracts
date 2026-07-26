@@ -40,7 +40,7 @@
     "docs": "npm run docs:api",
     "docs:api": "typedoc --plugin typedoc-plugin-markdown --tsconfig tsconfig.json --name \"Marketplace EVM Contracts\" --out docs/reference --readme none --githubPages false --hideBreadcrumbs true --hidePageHeader true --disableSources src/index.ts",
     "test": "node --test test/*.test.mjs && npm run test:solidity",
-    "test:solidity": "docker run --rm --platform linux/amd64 -v \"$PWD/../..:/workspace\" -w /workspace/dependencies/marketplace-evm-contracts boltz/foundry@sha256:790a32fde1bc937e6c0ecfa9df0c37dbae5c940c1f97b20cc27a22cc3d080a5f forge test",
+    "test:solidity": "node scripts/test-solidity.mjs",
     "prepare": "npm run build"
   },
   "devDependencies": {
