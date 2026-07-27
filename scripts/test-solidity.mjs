@@ -19,6 +19,8 @@ if (!dependencyRoot) {
 
 const localForge = spawnSync('forge', ['--version'], { stdio: 'ignore' }).status === 0
 if (localForge) {
+  const format = spawnSync('forge', ['fmt', '--check'], { cwd: packageRoot, stdio: 'inherit' })
+  if (format.status !== 0) process.exit(format.status ?? 1)
   const result = spawnSync('forge', [
     'test',
     '--remappings',
@@ -34,11 +36,15 @@ const containerDependency = usesAggregate
   ? '/workspace/node_modules/@openzeppelin/'
   : '/workspace/node_modules/@openzeppelin/'
 const image = 'boltz/foundry@sha256:790a32fde1bc937e6c0ecfa9df0c37dbae5c940c1f97b20cc27a22cc3d080a5f'
-const result = spawnSync('docker', [
+const dockerBase = [
   'run', '--rm', '--platform', 'linux/amd64',
   '-v', `${mountRoot}:/workspace`,
   '-w', workdir,
   image,
-  'forge', 'test', '--remappings', `@openzeppelin/=${containerDependency}`,
+]
+const format = spawnSync('docker', [...dockerBase, 'forge', 'fmt', '--check'], { stdio: 'inherit' })
+if (format.status !== 0) process.exit(format.status ?? 1)
+const result = spawnSync('docker', [
+  ...dockerBase, 'forge', 'test', '--remappings', `@openzeppelin/=${containerDependency}`,
 ], { stdio: 'inherit' })
 process.exit(result.status ?? 1)
